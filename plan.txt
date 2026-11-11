@@ -1,0 +1,6 @@
+A timelapse android application (only apk, no intent to publish to store)
+the main purpose is to take photos every N minutes during the day and wait for M hours during the night. the intervals must be configurable in the application.
+the photos should be stored in the original format in the google drive
+also a gif animation file should be created and stored in the google drive. this file should include all photos. 
+every new photo should be appended to it once it is taken.
+
