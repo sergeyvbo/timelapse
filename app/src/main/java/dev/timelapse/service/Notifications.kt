@@ -16,6 +16,7 @@ object Notifications {
     const val ID_STATUS = 1
     const val ID_AUTH = 2
     const val ID_RESUME = 3
+    const val ID_VIDEO = 4
 
     fun createChannels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)
@@ -46,6 +47,18 @@ object Notifications {
     }
 
     fun updateStatus(context: Context, text: String) = notify(context, ID_STATUS, status(context, text))
+
+    fun videoProgress(context: Context, text: String): Notification =
+        NotificationCompat.Builder(context, CHANNEL_STATUS)
+            .setSmallIcon(R.drawable.ic_stat_camera)
+            .setContentTitle("Timelapse video")
+            .setContentText(text)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setContentIntent(openApp(context))
+            .build()
+
+    fun updateVideoProgress(context: Context, text: String) = notify(context, ID_VIDEO, videoProgress(context, text))
 
     fun showAuthNeeded(context: Context) = notify(
         context, ID_AUTH,

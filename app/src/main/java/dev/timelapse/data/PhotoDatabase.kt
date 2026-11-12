@@ -12,7 +12,8 @@ import androidx.room.RoomDatabase
 import kotlinx.coroutines.flow.Flow
 
 /**
- * One captured photo. Lifecycle: captured → appended to the local GIF → uploaded to Drive (local file deleted).
+ * One captured photo (already at the selected resolution). Lifecycle: captured → appended to the preview GIF
+ * (or skipped when the GIF is off) → uploaded to Drive. The local file is kept: it is a frame of the MP4.
  */
 @Entity(tableName = "photos")
 data class PhotoEntity(
@@ -32,7 +33,10 @@ interface PhotoDao {
     @Query("SELECT * FROM photos WHERE gifAppended = 0 ORDER BY takenAt")
     suspend fun pendingGif(): List<PhotoEntity>
 
-    /** Only photos already in the GIF may be uploaded, because the upload deletes the local original. */
+    /** All frames in capture order (source of the MP4). */
+    @Query("SELECT * FROM photos ORDER BY takenAt")
+    suspend fun all(): List<PhotoEntity>
+
     @Query("SELECT * FROM photos WHERE gifAppended = 1 AND uploaded = 0 ORDER BY takenAt")
     suspend fun pendingUpload(): List<PhotoEntity>
 
@@ -53,6 +57,9 @@ interface PhotoDao {
 
     @Query("SELECT COUNT(*) FROM photos")
     fun observeTotal(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM photos WHERE takenAt >= :since")
+    fun observeCountSince(since: Long): Flow<Int>
 }
 
 @Database(entities = [PhotoEntity::class], version = 1, exportSchema = false)

@@ -27,6 +27,9 @@ class SettingsRepository(context: Context) {
         val gifWidth = intPreferencesKey("gif_width")
         val gifDelay = intPreferencesKey("gif_delay_ms")
         val folderName = stringPreferencesKey("drive_folder_name")
+        val resolution = stringPreferencesKey("resolution")
+        val videoFps = intPreferencesKey("video_fps")
+        val gifEnabled = booleanPreferencesKey("gif_enabled")
 
         val running = booleanPreferencesKey("running")
         val lastSlot = longPreferencesKey("last_slot_at")
@@ -39,6 +42,10 @@ class SettingsRepository(context: Context) {
         val gifUploadedLength = longPreferencesKey("gif_uploaded_length")
         val lastUpload = longPreferencesKey("last_upload_at")
         val lastError = stringPreferencesKey("last_error")
+        val video = stringPreferencesKey("video_info")
+        val videoFileId = stringPreferencesKey("video_file_id")
+        val videoUploadedStamp = longPreferencesKey("video_uploaded_stamp")
+        val statsResetAt = longPreferencesKey("stats_reset_at")
     }
 
     val settings: Flow<Settings> = ds.data.map { p ->
@@ -52,6 +59,9 @@ class SettingsRepository(context: Context) {
             gifWidth = p[K.gifWidth] ?: d.gifWidth,
             gifFrameDelayMs = p[K.gifDelay] ?: d.gifFrameDelayMs,
             driveFolderName = p[K.folderName] ?: d.driveFolderName,
+            resolution = p[K.resolution]?.let { r -> Resolution.entries.firstOrNull { it.name == r } } ?: d.resolution,
+            videoFps = p[K.videoFps] ?: d.videoFps,
+            gifEnabled = p[K.gifEnabled] ?: d.gifEnabled,
         ).sanitized()
     }
 
@@ -68,6 +78,10 @@ class SettingsRepository(context: Context) {
             gifUploadedLength = p[K.gifUploadedLength] ?: 0,
             lastUploadAt = p[K.lastUpload],
             lastError = p[K.lastError],
+            video = p[K.video]?.let(::decodeVideo),
+            videoFileId = p[K.videoFileId],
+            videoUploadedStamp = p[K.videoUploadedStamp] ?: 0,
+            statsResetAt = p[K.statsResetAt],
         )
     }
 
@@ -85,6 +99,9 @@ class SettingsRepository(context: Context) {
             it[K.gifWidth] = v.gifWidth
             it[K.gifDelay] = v.gifFrameDelayMs
             it[K.folderName] = v.driveFolderName
+            it[K.resolution] = v.resolution.name
+            it[K.videoFps] = v.videoFps
+            it[K.gifEnabled] = v.gifEnabled
         }
     }
 
@@ -111,6 +128,35 @@ class SettingsRepository(context: Context) {
     suspend fun clearGifFileId() = ds.edit { it.remove(K.gifFileId) }
     suspend fun setLastUpload(at: Long) = ds.edit { it[K.lastUpload] = at }
     suspend fun setLastError(message: String?) = ds.edit { it.put(K.lastError, message) }
+
+    suspend fun setVideo(info: VideoInfo) = ds.edit {
+        it[K.video] = listOf(info.renderedAt, info.frames, info.width, info.height, info.bytes, info.key).joinToString("|")
+    }
+
+    suspend fun setVideoUploaded(fileId: String, stamp: Long) = ds.edit {
+        it[K.videoFileId] = fileId
+        it[K.videoUploadedStamp] = stamp
+    }
+
+    /**
+     * Clears the statistics: photo counts restart from now and last shot/upload/error are forgotten.
+     * Photos, the video, the GIF and the schedule are not touched.
+     */
+    suspend fun resetStats(at: Long) = ds.edit {
+        it[K.statsResetAt] = at
+        it.remove(K.lastShot)
+        it.remove(K.lastUpload)
+        it.remove(K.lastError)
+    }
+
+    suspend fun clearVideoFileId() = ds.edit { it.remove(K.videoFileId) }
+
+    private fun decodeVideo(s: String): VideoInfo? = try {
+        val p = s.split("|", limit = 6)
+        VideoInfo(p[0].toLong(), p[1].toInt(), p[2].toInt(), p[3].toInt(), p[4].toLong(), p[5])
+    } catch (_: Exception) {
+        null
+    }
 
     private fun <T> MutablePreferences.put(key: Preferences.Key<T>, value: T?) {
         if (value == null) remove(key) else this[key] = value

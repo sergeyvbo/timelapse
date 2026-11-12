@@ -13,6 +13,7 @@ import dev.timelapse.camera.CameraController
 import dev.timelapse.data.PhotoEntity
 import dev.timelapse.graph
 import dev.timelapse.work.SyncScheduler
+import dev.timelapse.work.VideoScheduler
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -142,6 +143,12 @@ class CaptureService : LifecycleService() {
             } else {
                 slot
             }
+            // Daily MP4: rebuild after the last shot before the night (or after a day without one).
+            if (slotDue) {
+                val lastOfDay = Duration.between(slot, next) > Duration.ofMinutes(settings.intervalMinutes.toLong())
+                val stale = state.video?.let { now.toEpochMilli() - it.renderedAt > VIDEO_MAX_AGE.toMillis() } ?: true
+                if (lastOfDay || stale) VideoScheduler.enqueue(this, force = false)
+            }
             AlarmScheduler.schedule(this, next)
             graph.settings.setNextShot(next.toEpochMilli())
             updateNotification(next)
@@ -187,3 +194,4 @@ class CaptureService : LifecycleService() {
 
 private val MISSED_SLOT_GRACE: Duration = Duration.ofMinutes(5)
 private val EARLY_TOLERANCE: Duration = Duration.ofSeconds(30)
+private val VIDEO_MAX_AGE: Duration = Duration.ofHours(25)

@@ -35,7 +35,9 @@ class AppGraph(private val context: Context) {
             .writeTimeout(120, TimeUnit.SECONDS)
             .build()
     }
+    /** Stored photos at the selected resolution; kept forever as the MP4's frames. */
     val photosDir: File get() = File(context.filesDir, "photos").apply { mkdirs() }
+    val videoFile: File get() = File(File(context.filesDir, "video").apply { mkdirs() }, "timelapse.mp4")
 }
 
 val Context.graph: AppGraph get() = (applicationContext as TimelapseApp).graph

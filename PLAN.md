@@ -127,4 +127,6 @@ They haven't been tested on a device yet. Milestone 6 is partly done (boot handl
 3. **Upload**: the photo and the GIF are uploaded after every shot, **Wi-Fi only**. Shots taken offline are queued and uploaded in order once Wi-Fi returns.
 4. **Retention**: the local original is deleted once its Drive upload succeeds (Drive returns a file id → delete the file → mark the row `UPLOADED`).
 
-Possible later addition: MP4 export (smaller files, better quality than GIF).
+5. **Video (2026-11-11 change)**: the main output is now an MP4 (H.264, MediaCodec), re-rendered daily from *all* stored photos.
+   Photos are stored at the selected resolution (1440×1080 / 2016×1512 / 4032×3024) and **kept locally** as frames
+   (this replaces decision 4). The GIF is optional, for previews only.

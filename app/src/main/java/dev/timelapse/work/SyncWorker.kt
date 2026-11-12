@@ -37,8 +37,8 @@ object SyncScheduler {
 }
 
 /**
- * Uploads pending photos (oldest first), deletes each local original once Drive confirms it,
- * then replaces the GIF on Drive if the local one has grown.
+ * Uploads pending photos (oldest first; local files are kept as video frames), then replaces the preview GIF
+ * and the MP4 on Drive if the local ones changed.
  */
 class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     private val g = context.graph
@@ -62,6 +62,7 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
             val folderId = ensureFolder(drive)
             uploadPhotos(drive, folderId)
             uploadGif(drive, folderId)
+            uploadVideo(drive, folderId)
             g.settings.setLastUpload(System.currentTimeMillis())
             g.settings.setLastError(null)
             Notifications.cancel(applicationContext, Notifications.ID_AUTH)
@@ -83,7 +84,10 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
             return state.driveFolderId
         }
         val id = drive.findFolder(name) ?: drive.createFolder(name)
-        if (id != state.driveFolderId) g.settings.clearGifFileId() // GIF goes into the new folder
+        if (id != state.driveFolderId) { // GIF and video go into the new folder
+            g.settings.clearGifFileId()
+            g.settings.clearVideoFileId()
+        }
         g.settings.setDriveFolder(id, name)
         return id
     }
@@ -98,11 +102,11 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
             }
             val id = drive.createFile(file.name, folderId, file.asRequestBody(jpeg))
             g.photos.markUploaded(photo.id, id)
-            file.delete()
         }
     }
 
     private suspend fun uploadGif(drive: DriveClient, folderId: String) {
+        if (!g.settings.settings().gifEnabled) return
         val gif = g.gifStore.state() ?: return
         val state = g.settings.state()
         if (state.gifFileId != null && state.gifUploadedLength == gif.length) return
@@ -113,6 +117,19 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         g.settings.setGifUploaded(id, gif.length)
     }
 
+    private suspend fun uploadVideo(drive: DriveClient, folderId: String) {
+        val file = g.videoFile
+        if (!file.exists()) return
+        val stamp = file.lastModified()
+        val state = g.settings.state()
+        if (state.videoFileId != null && state.videoUploadedStamp == stamp) return
+
+        val body = file.asRequestBody("video/mp4".toMediaType())
+        val existing = state.videoFileId?.takeIf { drive.isAlive(it) }
+        val id = if (existing != null) drive.replaceContent(existing, body) else drive.createFile(VIDEO_NAME, folderId, body)
+        g.settings.setVideoUploaded(id, stamp)
+    }
+
     private suspend fun retryOrFail(message: String): Result {
         g.settings.setLastError(message)
         return if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.failure()
@@ -121,6 +138,7 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
     private companion object {
         const val TAG = "SyncWorker"
         const val GIF_NAME = "timelapse.gif"
+        const val VIDEO_NAME = "timelapse.mp4"
         const val MAX_ATTEMPTS = 12
     }
 }

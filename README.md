@@ -1,8 +1,9 @@
 # Timelapse
 
 Android app (sideloaded APK) that takes a photo every N minutes during the day, pauses for M hours at night,
-uploads each original JPEG to Google Drive over Wi-Fi, and keeps one ever-growing animated GIF of all photos
-on Drive (`<folder>/timelapse.gif`). Design notes: [PLAN.md](PLAN.md).
+uploads each photo to Google Drive over Wi-Fi, and once a day re-renders an MP4 of **all** photos
+(`<folder>/timelapse.mp4`). Optionally it also keeps a small preview GIF (`<folder>/timelapse.gif`).
+Design notes: [PLAN.md](PLAN.md).
 
 ## Build
 
@@ -45,8 +46,14 @@ Notes:
 - Shots that are missed by more than 5 minutes (e.g. phone off) are skipped, not caught up.
 - After a reboot on Android 11+, the app posts a "Timelapse paused" notification. Tap it to resume, because Android doesn't allow
   camera services to start from the background.
-- The GIF frame size is fixed by the first frame. The local GIF (`files/gif/timelapse.gif`) is the master copy, and the Drive file
-  is replaced with it after every sync.
+- **Resolution** (1440×1080, 2016×1512 or 4032×3024; swapped for portrait) is the size of the stored photos and of the video.
+  If the phone's H.264 encoder can't handle it, the video uses the largest 4:3 size it can (Mi MIX 2: max 4096×2160 landscape,
+  so 4032×3024 becomes 2880×2160, or 1620×2160 in portrait).
+- Photos are **kept on the phone** (`files/photos`), because they are the video's frames. At 1 photo/hour expect roughly
+  0.5 MB (1440), 1 MB (2016) or 3–4 MB (4032) per photo.
+- The video is rebuilt from all photos after the last shot of each day (or with **Render video now**), then uploaded,
+  replacing the previous `timelapse.mp4` on Drive.
+- The preview GIF frame size is fixed by its first frame. It is only updated while the checkbox is on.
 
 ## Release signing (optional)
 
