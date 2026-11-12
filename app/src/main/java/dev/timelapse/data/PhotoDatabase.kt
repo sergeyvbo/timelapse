@@ -37,6 +37,9 @@ interface PhotoDao {
     @Query("SELECT * FROM photos ORDER BY takenAt")
     suspend fun all(): List<PhotoEntity>
 
+    @Query("DELETE FROM photos")
+    suspend fun deleteAll()
+
     @Query("SELECT * FROM photos WHERE gifAppended = 1 AND uploaded = 0 ORDER BY takenAt")
     suspend fun pendingUpload(): List<PhotoEntity>
 

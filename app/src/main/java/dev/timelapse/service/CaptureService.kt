@@ -145,7 +145,7 @@ class CaptureService : LifecycleService() {
             }
             // Daily MP4: rebuild after the last shot before the night (or after a day without one).
             if (slotDue) {
-                val lastOfDay = Duration.between(slot, next) > Duration.ofMinutes(settings.intervalMinutes.toLong())
+                val lastOfDay = Scheduler.isLastOfDay(slot, settings, zone)
                 val stale = state.video?.let { now.toEpochMilli() - it.renderedAt > VIDEO_MAX_AGE.toMillis() } ?: true
                 if (lastOfDay || stale) VideoScheduler.enqueue(this, force = false)
             }

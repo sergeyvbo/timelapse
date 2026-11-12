@@ -1,5 +1,7 @@
 package dev.timelapse.ui
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -92,6 +94,21 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     fun syncNow() = SyncScheduler.enqueue(app)
 
     fun renderVideoNow() = VideoScheduler.enqueue(app, force = true)
+
+    /** Deletes every local photo, GIF and the video and resets the counters. Only while stopped. */
+    fun startOver() = viewModelScope.launch {
+        if (g.settings.state().running) return@launch
+        WorkManager.getInstance(app).cancelUniqueWork(VideoScheduler.WORK_NAME)
+        withContext(Dispatchers.IO) {
+            g.gifAppender.exclusive {
+                g.photos.deleteAll()
+                g.photosDir.listFiles()?.forEach { it.delete() }
+                g.gifStore.reset()
+                g.videoFile.parentFile?.listFiles()?.forEach { it.delete() }
+                g.settings.startOver()
+            }
+        }
+    }
 
     fun reportError(message: String) = viewModelScope.launch { g.settings.setLastError(message) }
 }

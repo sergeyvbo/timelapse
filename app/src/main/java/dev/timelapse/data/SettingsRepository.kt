@@ -40,6 +40,7 @@ class SettingsRepository(context: Context) {
         val driveFolderResolvedName = stringPreferencesKey("drive_folder_resolved_name")
         val gifFileId = stringPreferencesKey("gif_file_id")
         val gifUploadedLength = longPreferencesKey("gif_uploaded_length")
+        val gifDay = stringPreferencesKey("gif_day")
         val lastUpload = longPreferencesKey("last_upload_at")
         val lastError = stringPreferencesKey("last_error")
         val video = stringPreferencesKey("video_info")
@@ -75,6 +76,7 @@ class SettingsRepository(context: Context) {
             driveFolderId = p[K.driveFolderId],
             driveFolderName = p[K.driveFolderResolvedName],
             gifFileId = p[K.gifFileId],
+            gifDay = p[K.gifDay],
             gifUploadedLength = p[K.gifUploadedLength] ?: 0,
             lastUploadAt = p[K.lastUpload],
             lastError = p[K.lastError],
@@ -120,12 +122,26 @@ class SettingsRepository(context: Context) {
         it[K.driveFolderResolvedName] = name
     }
 
-    suspend fun setGifUploaded(fileId: String, length: Long) = ds.edit {
+    suspend fun setGifUploaded(fileId: String, length: Long, day: String) = ds.edit {
         it[K.gifFileId] = fileId
         it[K.gifUploadedLength] = length
+        it[K.gifDay] = day
     }
 
-    suspend fun clearGifFileId() = ds.edit { it.remove(K.gifFileId) }
+    suspend fun clearGifFileId() = ds.edit {
+        it.remove(K.gifFileId)
+        it.remove(K.gifDay)
+        it.remove(K.gifUploadedLength)
+    }
+
+    /**
+     * After all local photos, GIFs and the video were deleted: forget them and the counters.
+     * The Drive video id is kept so the next render replaces that file instead of adding a second one.
+     */
+    suspend fun startOver() = ds.edit { p ->
+        listOf(K.gifFileId, K.gifDay, K.gifUploadedLength, K.video, K.videoUploadedStamp,
+            K.lastSlot, K.lastShot, K.lastUpload, K.lastError, K.statsResetAt).forEach { p.remove(it) }
+    }
     suspend fun setLastUpload(at: Long) = ds.edit { it[K.lastUpload] = at }
     suspend fun setLastError(message: String?) = ds.edit { it.put(K.lastError, message) }
 

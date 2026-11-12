@@ -53,6 +53,8 @@ data class RuntimeState(
     /** Folder name [driveFolderId] was resolved for; a rename in settings triggers a new lookup. */
     val driveFolderName: String? = null,
     val gifFileId: String? = null,
+    /** Day of the GIF that [gifFileId] holds. */
+    val gifDay: String? = null,
     /** Local GIF length that was last uploaded successfully. */
     val gifUploadedLength: Long = 0,
     val lastUploadAt: Long? = null,

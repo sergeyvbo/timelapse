@@ -278,7 +278,33 @@ private fun InfoCard(state: UiState, vm: MainViewModel) {
             if (r.driveConnected) TextButton(onClick = vm::syncNow) { Text("Sync now") }
         }
         var confirm by remember { mutableStateOf(false) }
-        TextButton(onClick = { confirm = true }) { Text("Clear statistics") }
+        var confirmStartOver by remember { mutableStateOf(false) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = { confirm = true }) { Text("Clear statistics") }
+            TextButton(onClick = { confirmStartOver = true }, enabled = !r.running) {
+                Text("Start over", color = if (r.running) Color.Unspecified else MaterialTheme.colorScheme.error)
+            }
+        }
+        if (r.running) {
+            Text("Stop recording to start over.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+        }
+        if (confirmStartOver) {
+            AlertDialog(
+                onDismissRequest = { confirmStartOver = false },
+                title = { Text("Start over?") },
+                text = {
+                    Text("Deletes all photos, the GIFs and the video stored on this phone, " +
+                        "and resets the counts. Files already in Google Drive are not touched. This cannot be undone.")
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        vm.startOver()
+                        confirmStartOver = false
+                    }) { Text("Delete everything", color = MaterialTheme.colorScheme.error) }
+                },
+                dismissButton = { TextButton(onClick = { confirmStartOver = false }) { Text("Cancel") } },
+            )
+        }
         if (confirm) {
             AlertDialog(
                 onDismissRequest = { confirm = false },

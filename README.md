@@ -2,7 +2,7 @@
 
 Android app (sideloaded APK) that takes a photo every N minutes during the day, pauses for M hours at night,
 uploads each photo to Google Drive over Wi-Fi, and once a day re-renders an MP4 of **all** photos
-(`<folder>/timelapse.mp4`). Optionally it also keeps a small preview GIF (`<folder>/timelapse.gif`).
+(`<folder>/timelapse.mp4`). Optionally it also keeps a small preview GIF, a new one each day (`<folder>/timelapse_YYYY-MM-DD.gif`).
 Design notes: [PLAN.md](PLAN.md).
 
 ## Build
@@ -42,7 +42,8 @@ photos stay on the phone (and in the GIF) until you reconnect.
 4. Tap **Start**. A permanent notification shows the next shot time.
 
 Notes:
-- Shots follow a grid that starts when the night ends. For example, with the night starting at 21:00 for 9 h and a 60-minute interval, shots are at 06:00, 07:00, …, 20:00.
+- The first shot of the day is 15 s after the night ends, then every N minutes, and the last shot is always 15 s before the night starts. For example, with the night starting at 21:00 for 9 h and a 60-minute interval, shots are at 06:00:15, 07:00:15, …, 20:00:15 and 20:59:45.
+- **Start over** (only while stopped) deletes all photos, GIFs and the video on the phone. Files in Google Drive are not touched.
 - Shots that are missed by more than 5 minutes (e.g. phone off) are skipped, not caught up.
 - After a reboot on Android 11+, the app posts a "Timelapse paused" notification. Tap it to resume, because Android doesn't allow
   camera services to start from the background.
@@ -53,7 +54,7 @@ Notes:
   0.5 MB (1440), 1 MB (2016) or 3–4 MB (4032) per photo.
 - The video is rebuilt from all photos after the last shot of each day (or with **Render video now**), then uploaded,
   replacing the previous `timelapse.mp4` on Drive.
-- The preview GIF frame size is fixed by its first frame. It is only updated while the checkbox is on.
+- Each day's preview GIF starts with that day's first photo; a shot taken at night counts towards the day that just ended. The frame size is fixed by the first frame. It is only updated while the checkbox is on.
 
 ## Release signing (optional)
 

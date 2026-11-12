@@ -4,15 +4,18 @@ import android.util.Log
 import dev.timelapse.data.PhotoDao
 import dev.timelapse.data.SettingsRepository
 import dev.timelapse.media.Frames
+import dev.timelapse.service.Scheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.time.Instant
+import java.time.ZoneId
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-/** Appends every captured photo that is not yet in the preview GIF, in capture order. */
+/** Appends every captured photo that is not yet in the preview GIF, in capture order; one GIF per day. */
 class GifAppender(
     private val photos: PhotoDao,
     private val store: GifStore,
@@ -31,9 +34,11 @@ class GifAppender(
                 try {
                     val file = File(photo.path)
                     if (file.exists()) {
+                        val day = Scheduler.dayOf(Instant.ofEpochMilli(photo.takenAt), s, ZoneId.systemDefault())
+                        store.rotate(day)
                         val canvas = store.state()?.let { it.width to it.height }
                         val frame = FrameRenderer.render(file, canvas, s.gifWidth)
-                        store.append(frame, s.gifFrameDelayMs)
+                        store.append(frame, s.gifFrameDelayMs, day)
                     } else {
                         Log.w(TAG, "Photo ${photo.path} missing, skipped in GIF")
                     }
@@ -46,6 +51,9 @@ class GifAppender(
             }
         }
     }
+
+    /** Runs [block] while no frame is being added (used to wipe photos and GIFs). */
+    suspend fun <T> exclusive(block: suspend () -> T): T = mutex.withLock { block() }
 
     private companion object {
         const val TAG = "GifAppender"

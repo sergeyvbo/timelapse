@@ -124,6 +124,34 @@ class GifTest {
         assertEquals(1, decode(store.gifFile).size)
     }
 
+    @Test
+    fun `new day rotates the gif into done`() {
+        val dir = tmp.newFolder()
+        val d1 = java.time.LocalDate.parse("2026-11-11")
+        val d2 = d1.plusDays(1)
+        val store = GifStore(dir)
+        store.rotate(d1) // nothing to rotate yet
+        store.append(solid(16, 16, 0xFF0000), 100, d1)
+        store.append(solid(16, 16, 0x00FF00), 100, d1)
+        store.rotate(d1)
+        assertEquals(2, store.state()!!.frames)
+
+        store.rotate(d2)
+        assertNull(store.state())
+        val done = store.finished().single()
+        assertEquals("timelapse_2026-11-11.gif", done.name)
+        assertEquals(d1, GifStore.dayOf(done))
+        assertEquals(2, decode(done).size)
+
+        store.append(solid(16, 16, 0x0000FF), 100, d2)
+        assertEquals(d2, GifStore(dir).state()!!.day) // day survives reopening
+        assertEquals(1, decode(store.gifFile).size)
+
+        store.reset()
+        assertNull(store.state())
+        assertTrue(store.finished().isEmpty())
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun `frame size mismatch is rejected`() {
         val store = GifStore(tmp.newFolder())

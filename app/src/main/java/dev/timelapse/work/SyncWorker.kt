@@ -13,6 +13,7 @@ import androidx.work.WorkerParameters
 import dev.timelapse.drive.DriveAuth
 import dev.timelapse.drive.DriveClient
 import dev.timelapse.drive.GifSnapshotBody
+import dev.timelapse.gif.GifStore
 import dev.timelapse.graph
 import dev.timelapse.service.Notifications
 import kotlinx.coroutines.Dispatchers
@@ -105,16 +106,30 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         }
     }
 
+    /** Finished GIFs of earlier days first (completing the file uploaded during that day), then today's. */
     private suspend fun uploadGif(drive: DriveClient, folderId: String) {
+        for (file in g.gifStore.finished()) {
+            val day = GifStore.dayOf(file)?.toString()
+            val state = g.settings.state()
+            val existing = state.gifFileId?.takeIf { day != null && state.gifDay == day && drive.isAlive(it) }
+            val body = file.asRequestBody(GIF_TYPE.toMediaType())
+            if (existing != null) drive.replaceContent(existing, body) else drive.createFile(file.name, folderId, body)
+            g.settings.clearGifFileId()
+            file.delete()
+        }
+
         if (!g.settings.settings().gifEnabled) return
         val gif = g.gifStore.state() ?: return
+        val day = gif.day?.toString() ?: LEGACY_DAY
         val state = g.settings.state()
-        if (state.gifFileId != null && state.gifUploadedLength == gif.length) return
+        val sameFile = state.gifFileId != null && (state.gifDay ?: LEGACY_DAY) == day
+        if (sameFile && state.gifUploadedLength == gif.length) return
 
         val body = GifSnapshotBody(g.gifStore.gifFile, gif.length)
-        val existing = state.gifFileId?.takeIf { drive.isAlive(it) }
-        val id = if (existing != null) drive.replaceContent(existing, body) else drive.createFile(GIF_NAME, folderId, body)
-        g.settings.setGifUploaded(id, gif.length)
+        val existing = state.gifFileId?.takeIf { sameFile && drive.isAlive(it) }
+        val name = gif.day?.let(GifStore::fileName) ?: "timelapse.gif"
+        val id = if (existing != null) drive.replaceContent(existing, body) else drive.createFile(name, folderId, body)
+        g.settings.setGifUploaded(id, gif.length, day)
     }
 
     private suspend fun uploadVideo(drive: DriveClient, folderId: String) {
@@ -137,7 +152,10 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
 
     private companion object {
         const val TAG = "SyncWorker"
-        const val GIF_NAME = "timelapse.gif"
+        const val GIF_TYPE = "image/gif"
+
+        /** gifDay of a GIF made before daily rotation. */
+        const val LEGACY_DAY = "legacy"
         const val VIDEO_NAME = "timelapse.mp4"
         const val MAX_ATTEMPTS = 12
     }
